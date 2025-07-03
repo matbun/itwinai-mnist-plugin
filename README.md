@@ -1,207 +1,154 @@
-# Writing plugins for itwinai
+# Pure torch example on MNIST dataset
 
-[![GitHub Super-Linter](https://github.com/interTwin-eu/itwinai-plugin-template/actions/workflows/lint.yml/badge.svg)](https://github.com/marketplace/actions/super-linter)
-[![GitHub Super-Linter](https://github.com/interTwin-eu/itwinai-plugin-template/actions/workflows/check-links.yml/badge.svg)](https://github.com/marketplace/actions/markdown-link-check)
- [![SQAaaS source code](https://github.com/EOSC-synergy/itwinai-plugin-template.assess.sqaaas/raw/main/.badge/status_shields.svg)](https://sqaaas.eosc-synergy.eu/#/full-assessment/report/https://raw.githubusercontent.com/eosc-synergy/itwinai-plugin-template.assess.sqaaas/main/.report/assessment_output.json)
+**Integration author(s)**: Matteo Bunino (CERN)
 
-It would be beneficial to integrate the interTwin use case code
-directly into itwinai, providing an easy way to distribute and
-compare AI methods used by various researchers.
+In this simple use case integration we demostrate how to use itwinai for a set of simple
+use cases based on the popular MNIST dataset.
 
-However, requiring all researchers to maintain their code within
-the itwinai repository can be complicated and may create an
-unnecessary barrier for newcomers interested in joining this
-ecosystem. Researchers and use case developers often prefer
-the flexibility of developing their code in a separate repository.
-This allows them to independently manage the packaging and
-publishing of their software, for instance, by releasing it
-to PyPI when it best suits their needs.
+## Training a CNN classifier
 
-To address this challenge, itwinai implements a *plugin*
-architecture, allowing the community to independently develop
-sub-packages for itwinai. These sub-packages can later be installed
-from PyPI and imported into Python code as if they were part of
-itwinai. This is made possible by
-[namespace packages](https://packaging.python.org/en/latest/guides/packaging-namespace-packages/).
+It is possible to launch the training of a CNN classifier on the MNIST dataset using the
+YAML configuration file describing the whole training workflow.
 
-Itwinai plugins are developed by assuming that the plugin logic,
-once installed alongside itwinai, will be accessible under
-the `itwinai.plugins.*` namespace. Example:
-
-```python
-from itwinai.plugins.my_awesome_plugin import awesome_module
-
-# Call a function implemented by the plugin
-awesome_module.awesome_function(some=1, argument='foo')
-
-# Instantiate a class implemented by the plugin
-my_obj = awesome_module.AwesomeClass(another='bar', arg=False)
+```bash
+# Run the whole training pipeline
+itwinai exec-pipeline --config-name config.yaml
 ```
 
-Similarly, you can import modules from plugin's subfolders. In this case:
+Notice that the training "pipeline" starts by downloading the dataset if not available locally.
+Since on some HPC systems there is no internet connection on the compute nodes, it is
+advisable to run the dataloading step on the login node to download the dataset and, later,
+the whole pipeline on the compute nodes. To do that, you can use the `pipe_steps` option as
+below:
 
-```python
-from itwinai.plugins.my_awesome_plugin.plugin_subfolder import another_module
-# Call some function
-another_module.another_function()
+```bash
+# Download dataset and exit
+itwinai exec-pipeline --config-name config.yaml +pipe_steps=[dataloading_step]
 
-from itwinai.plugins.my_awesome_plugin.another_plugin_subfolder import yet_another_module
-
-# Call some function
-yet_another_module.yet_another_function()
+# Run the whole pipeline
+itwinai exec-pipeline --config-name config.yaml
 ```
-
-## How to write a new plugin
-
-To write a new plugin, you can take inspiration from
-[this repository](https://github.com/interTwin-eu/itwinai-plugin-template),
-and you can also use it as a template
-when creating a new repository in GitHub.
 
 > [!NOTE]
-> Do NOT contribute directly to the plugin template repository,
-> rather use it as a GitHub repository template, or fork it,
-> or copy it.
+> Setting `HYDRA_FULL_ERROR=1` environment variable can be convenient when debugging errors
+> that originate during the instantiation of the pipeline.
 
-The plugin template repository describes a python project using
-a `pyproject.toml`, where the following configuration declares
-that the Python package implemented by the plugin belongs under
-the `itwinai.plugins.*` namespace:
-
-```toml
-[tool.setuptools.packages.find]
-
-# Declare this package as part of the `itwinai.plugins` namespace
-where = ["src"]
-
-# List plugin folders and subfolders
-include = [
-    "itwinai.plugins.my_awesome_plugin",
-    "itwinai.plugins.my_awesome_plugin.plugin_subfolder",
-    "itwinai.plugins.my_awesome_plugin.another_plugin_subfolder",
-]
-```
-
-> [!CAUTION]
-> Make sure to list all the plugin subfolders in the `include` field
-> of the `pyproject.toml` file,
-> otherwise the plugin may not be installed correctly and plugin
-> sub-packages may not be visble!
-
-As a plugin developer, all you have to do is maintaining your Python
-packages and modules under `src/itwinai/plugins`.
-
-> [!WARNING]
-> It is important to use an original name for the root package of your
-> plugin (`my_awesome_plugin` in the example above). Avoid reusing existing
-> plugin names, otherwise your plugin may be overridden by another one
-> when installed at the same time!
-
-Also, be minful of the Python
-[packaging rules](https://packaging.python.org/en/latest/tutorials/packaging-projects/)!
-
-> [!IMPORTANT]  
-> Since your plugin is a Python library, remember that **each package
-> and sub-package (i.e., folder and sub-folder) must contain at
-> least one `__init__.py` file**, even
-> if empty. Otherwise it will not be possible to correctly import
-> the modules from the plugin.
-
-Alternatively, instead of a `pyproject.toml`, you can as well use the
-legacy `setup.py` to describe your plugin package. In that case, remember
-to add the following arguments to the `setup` function, to ensure the correct
-installation of the plugin under the `itwinai.plugins` namespace:
-
-```python
-from setuptools import setup, find_namespace_packages
-
-setup(
-    name='itwinai-awesome-plugin',
-    ...
-    packages=find_namespace_packages(where='src/', include=['itwinai.plugins.my_awesome_plugin']),
-    package_dir={'': 'src'},
-    install_requires=['itwinai'],  # Ensure `itwinai` is installed
-    ...
-)
-```
-
-### Docker containers
-
-In this template repository you can already find two sample Dockerfiles as
-example to build your containers using the itwinai container images as a base.
-
-- `Dockerfile` provides an example of recipe that you would like to use to define
-a general purpose container, to be executed on cloud or on HPC.
-- `jupyter.Dockerfile` is an example of JupyterLab container based on the itwinai
-one.
-
-In this repository you can also find a `.dockerignore` file, which lists all the
-files and directories to be ignored by docker build. Make sure to customize it
-to your needs!
-
-### Writing unit and integration tests
-
-It is good practice to write tests for your code, and the itwinai plugins are not
-an exception! Find some examples of unit tests under `tests/`, which can be
-launched with `pytest` from the root of the repository with:
+View training logs on MLFLow server (if activated from the configuration):
 
 ```bash
-pytest -v tests/
+mlflow ui --backend-store-uri mllogs/mlflow/
 ```
 
-Learn more about `pytest` [here](https://docs.pytest.org/en/stable/).
+### Hyper-parameter optimization
 
-Notice that the tests will be executed automatically in the GitHub Actions space
-every time you push to the main branch. You can change this behavior editing the
-file at `.github/workflows/pytest.yaml`.
+The CNN classifier can undergo hyper-parameter optimization (HPO) to find the hyper-parameters,
+such as learning rate and batch size, that result in the best validation performances.
 
-## Installing a plugin
+To do so, it is enough to correctly set the `search_space` and the `tune_config` in the trainer
+configuration in the `config.yaml` file.
+Please refer to the Ray's official documentation to know more about
+[RunConfig](https://docs.ray.io/en/latest/tune/api/doc/ray.tune.RunConfig.html),
+[TuneConfig](https://docs.ray.io/en/latest/tune/api/doc/ray.tune.TuneConfig.html),
+[ScalingConfig](https://docs.ray.io/en/latest/train/api/doc/ray.train.ScalingConfig.html),
+and [search spaces](https://docs.ray.io/en/latest/tune/api/search_space.html).
 
-An end user can install a plugin directly from its repository or from
-PyPI (if available).
+### Inference
 
-To use a plugin in your code, install it alongside itwinai:
+Now you can use the trained model to make predictions on the MNIST dataset.
+Notice that the inference is defined by using a different pipeline in the `config.yaml` file.
+By default, the `training_pipeline` is executed, but you can run other piplines by explicitly
+setting the `+pipe_key` option.
+
+1. Create sample dataset
+
+    ```python
+    from dataloader import InferenceMNIST
+    InferenceMNIST.generate_jpg_sample('mnist-sample-data/', 10)
+    ```
+
+2. Generate a dummy pre-trained neural network
+
+    ```python
+    import torch
+    from model import Net
+    dummy_nn = Net()
+    torch.save(dummy_nn, 'mnist-pre-trained.pth')
+    ```
+
+3. Run inference command. This will generate a "mnist-predictions"
+folder containing a CSV file with the predictions as rows.
+
+    ```bash
+    itwinai exec-pipeline --config-name config.yaml +pipe_key=inference_pipeline 
+    ```
+
+Note the same entry point as for training.
+
+## Training a GAN
+
+In this use case you can also find an example on how to train a Generative Adversarial Network
+(GAN). All you need to do is specify that you wish to use the GAN by setting the `+pipe_key`
+option.
 
 ```bash
-# Install itwinai
-pip install itwinai
-
-# Now, install one or more plugins
-pip install itwinai-awesome-plugin
-# Or directly from the plugin's repository
-pip install itwinai-awesome-plugin@git+https://github.com/USER/PROJECT@BRANCH
+# Train a GAN
+itwinai exec-pipeline --config-name config.yaml +pipe_key=training_pipeline_gan
 ```
 
-Conversely, a plugin developer may be interested in installing the plugin in
-*editable mode* from the project directory:
+## Docker image
+
+Build from project root with
 
 ```bash
-git clone git@github.com:USER/REPOSITORY.git && cd REPOSITORY
+# Local
+docker buildx build -t itwinai:0.0.1-mnist-torch-0.1 -f use-cases/mnist/torch/Dockerfile .
 
-# After having installed itwinai with its dependencies,
-# install the plugin from source in editable mode.
-pip install --editable . 
+# Ghcr.io
+docker buildx build -t ghcr.io/intertwin-eu/itwinai:0.0.1-mnist-torch-0.1 -f use-cases/mnist/torch/Dockerfile .
+docker push ghcr.io/intertwin-eu/itwinai:0.0.1-mnist-torch-0.1
 ```
 
-### Beware of installations in editable mode
+### Training with Docker container
 
-When a package is installed in editable mode, it creates a symlink to the
-source directory, which works differently from how non-editable packages are
-installed. Namespace packages can behave inconsistently when some parts are
-installed in editable mode and others are not.
+```bash
+docker run -it --rm --name running-inference \
+    -v "$PWD":/usr/data ghcr.io/intertwin-eu/itwinai:0.01-mnist-torch-0.1 \
+    /bin/bash -c "itwinai exec-pipeline \
+    --config-path /usr/src/app \
+    +pipe_key=training_pipeline \
+    dataset_root=/usr/data/mnist-dataset "
+```
 
-To check whether a package was installed in editable mode you can use
-`pip show PACKAGE_NAME`. Editable packages show an *"Editable"* path
-in the output of the command.
+### Inference with Docker container
 
-> [!WARNING]
-> When itwinai, the core library, is installed in editable mode **also**
-> **the plugin must be installed in editable mode**. Otherwise, the plugin
-> may not be visible when imported.
+From wherever a sample of MNIST jpg images is available
+(folder called 'mnist-sample-data/'):
 
-From empirical experience, the following installation configurations
-*seem* to be working:
+```text
+├── $PWD
+│   ├── mnist-sample-data
+|   │   ├── digit_0.jpg
+|   │   ├── digit_1.jpg
+|   │   ├── digit_2.jpg
+...
+|   │   ├── digit_N.jpg
+```
 
-- itwinai: editable, plugin: editable
-- itwinai: non-editable, plugin: non-editable
-- itwinai: non-editable, plugin: editable
+```bash
+docker run -it --rm --name running-inference \
+    -v "$PWD":/usr/data ghcr.io/intertwin-eu/itwinai:0.01-mnist-torch-0.1 \
+    /bin/bash -c "itwinai exec-pipeline \
+    --config-path /usr/src/app \
+    +pipe_key=inference_pipeline \
+    test_data_path=/usr/data/mnist-sample-data \
+    inference_model_mlflow_uri=/usr/src/app/mnist-pre-trained.pth \
+    predictions_dir=/usr/data/mnist-predictions "
+```
+
+This command will store the results in a folder called "mnist-predictions":
+
+```text
+├── $PWD
+│   ├── mnist-predictions
+|   │   ├── predictions.csv
+```
