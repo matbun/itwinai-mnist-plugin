@@ -35,7 +35,7 @@ training_pipeline:
   _target_: itwinai.pipeline.Pipeline
   steps:
     dataloading_step:
-      _target_: dataloader.MNISTDataModuleTorch
+      _target_: itwinai.plugins.mnist.dataloader.MNISTDataModuleTorch
       save_path: ${dataset_root}
     training_step:
       _target_: itwinai.torch.trainer.TorchTrainer
@@ -89,7 +89,7 @@ training_pipeline:
           lower: 1e-5
           upper: 1e-3
       model:
-        _target_: model.Net
+        _target_: itwinai.plugins.mnist.model.Net
       epochs: ${epochs}
       metrics:
         accuracy:
@@ -117,7 +117,7 @@ training_pipeline:
 inference_pipeline:
   _target_: itwinai.pipeline.Pipeline
   steps:
-    - _target_: dataloader.MNISTPredictLoader
+    - _target_: itwinai.plugins.mnist.dataloader.MNISTPredictLoader
       test_data_path: ${test_data_path}
     - _target_: itwinai.torch.inference.MulticlassTorchPredictor
       model:
@@ -125,7 +125,7 @@ inference_pipeline:
         model_uri: ${inference_model_mlflow_uri}
       config:
         batch_size: ${batch_size}
-    - _target_: saver.TorchMNISTLabelSaver
+    - _target_: itwinai.plugins.mnist.saver.TorchMNISTLabelSaver
       save_dir: ${predictions_dir}
       predictions_file: ${predictions_file}
       class_labels: ${class_labels}
