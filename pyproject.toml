@@ -14,7 +14,7 @@ authors = [
   { name = "Jarl Sondre Sæther", email = "jarl.sondre.saether@cern.ch" }
 ]
 dependencies = [
-    "itwinai[torch] @ git+https://github.com/interTwin-eu/itwinai.git@main",
+    "itwinai[torch] @ git+https://github.com/interTwin-eu/itwinai.git@fix-itwinai-run-mnist",
     "pytest>=8.3.4"
 ]
 
